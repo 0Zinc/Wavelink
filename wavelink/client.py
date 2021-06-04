@@ -58,8 +58,9 @@ class Client:
             return super().__new__(cls)
 
         for handler in update_handlers:
-            if handler.__self__.__class__.__qualname__ == 'wavelink.Client':
-                bot.remove_listener(handler, 'on_socket_response')
+            if hasattr(handler, "__self__"):
+                if handler.__self__.__class__.__qualname__ == 'wavelink.Client':
+                    bot.remove_listener(handler, 'on_socket_response')
 
         return super().__new__(cls)
 
