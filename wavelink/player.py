@@ -37,7 +37,7 @@ __log__ = logging.getLogger(__name__)
 
 
 class Track:
-    """Wavelink Tack object.
+    """Wavelink Track object.
 
     Attributes
     ------------
@@ -160,6 +160,8 @@ class Player:
         self._equalizer = Equalizer.flat()
         self.channel_id = None
 
+        self._new_track = False
+
     @property
     def equalizer(self):
         """The currently applied Equalizer."""
@@ -239,8 +241,9 @@ class Player:
             await self.node._send(op='voiceUpdate', guildId=str(self.guild_id), **self._voice_state)
 
     async def hook(self, event) -> None:
-        if isinstance(event, TrackEnd):
+        if isinstance(event, TrackEnd) and not self._new_track:
             self.current = None
+        self._new_track = False
 
     def _get_shard_socket(self, shard_id: int) -> Optional[DiscordWebSocket]:
         if isinstance(self.bot, commands.AutoShardedBot):
@@ -252,7 +255,7 @@ class Player:
         if self.bot.shard_id is None or self.bot.shard_id == shard_id:
             return self.bot.ws
 
-    async def connect(self, channel_id: int):
+    async def connect(self, channel_id: int, self_deaf: bool = False):
         """|coro|
 
         Connect to a Discord Voice Channel.
@@ -261,13 +264,15 @@ class Player:
         ------------
         channel_id: int
             The channel ID to connect to.
+        self_deaf: bool
+            Whether to self deafen or not.
         """
         guild = self.bot.get_guild(self.guild_id)
         if not guild:
             raise InvalidIDProvided(f'No guild found for id <{self.guild_id}>')
 
         self.channel_id = channel_id
-        await self._get_shard_socket(guild.shard_id).voice_state(self.guild_id, str(channel_id))
+        await self._get_shard_socket(guild.shard_id).voice_state(self.guild_id, str(channel_id), self_deaf=self_deaf)
         __log__.info(f'PLAYER | Connected to voice channel:: {self.channel_id}')
 
     async def disconnect(self, *, force: bool = False) -> None:
@@ -313,6 +318,9 @@ class Player:
             return
 
         no_replace = not replace
+
+        if self.current:
+            self._new_track = True
 
         self.current = track
 
